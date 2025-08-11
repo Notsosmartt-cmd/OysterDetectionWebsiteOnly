@@ -77,7 +77,7 @@ export const detect = async (source, model, canvasRef, onComplete = () => {}) =>
     return [rawScores.max(1), rawScores.argMax(1)];
   }); // get max scores and classes index
 
-  const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, 500, 0.45, 0.4); // NMS to filter boxes
+  const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, 500, 0.5, 0.40); // NMS to filter boxes
 
   const boxes_data = boxes.gather(nms, 0).dataSync(); // indexing boxes by nms index
   const scores_data = scores.gather(nms, 0).dataSync(); // indexing scores by nms index
@@ -100,36 +100,72 @@ export const detect = async (source, model, canvasRef, onComplete = () => {}) =>
  * @param {HTMLCanvasElement} canvasRef canvas reference
  */
 export const detectVideo = (vidSource, model, canvasRef, setRecordedBlob) => {
-  let rafId;
-  let recorder;
+  // guard: don't start twice for the same video element
+  if (vidSource._detecting) return;
+  vidSource._detecting = true;
+
+  let rafId = null;
+  let recorder = null;
   let chunks = [];
 
-  const canvasStream = canvasRef.captureStream(); // capture canvas stream as video
-  recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
+  // start recording the canvas
+  const canvasStream = canvasRef.captureStream();
+  try {
+    recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
+  } catch (e) {
+    console.warn("MediaRecorder not supported or mimeType rejected:", e);
+    recorder = null;
+  }
 
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
+  if (recorder) {
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+    recorder.onstop = () => {
+      const recordedBlob = new Blob(chunks, { type: "video/webm" });
+      setRecordedBlob(recordedBlob);
+    };
+    recorder.start();
+  }
+
+  let frameCount = 0;
+
+  const stopAll = () => {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    try {
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+    } catch (err) {
+      console.warn("Error stopping recorder:", err);
+    }
+    vidSource._detecting = false;
   };
-
-  recorder.onstop = () => {
-    const recordedBlob = new Blob(chunks, { type: "video/webm" });
-    setRecordedBlob(recordedBlob);
-  };
-
-  recorder.start();
 
   const detectFrame = async () => {
+    // stop condition
     if (vidSource.ended || vidSource.paused) {
-      cancelAnimationFrame(rafId);
-      recorder.stop(); // stop recording when video ends
+      stopAll();
       return;
     }
 
-    await detect(vidSource, model, canvasRef, () => {
-      rafId = requestAnimationFrame(detectFrame);
-    });
+    frameCount++;
+
+    // run detection only every 10th frame
+    if (frameCount % 10 === 0) {
+      try {
+        // we await detect so there's no overlapping inference calls
+        await detect(vidSource, model, canvasRef, () => {});
+      } catch (err) {
+        console.error("Error during detection:", err);
+      }
+    }
+
+    // schedule next frame
+    rafId = requestAnimationFrame(detectFrame);
   };
 
+  // kick off the loop
   detectFrame();
 };
-

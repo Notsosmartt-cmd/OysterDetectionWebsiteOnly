@@ -26,7 +26,7 @@ const App = () => {
     const canvasRef = useRef(null);
 
     // model configs
-    const modelName = "yolo8quant";
+    const modelName = "yolov8nquantized";
 
     useEffect(() => {
         tf.ready().then(async () => {
@@ -57,7 +57,7 @@ const App = () => {
         <div className="App">
             {loading.loading && <Loader>Loading model... {(loading.progress * 100).toFixed(2)}%</Loader>}
             <div className="header">
-                <h1>📷 YOLOv8 Live Detection App</h1>
+                <h1>🦪 YOLOv8 Live Oyster Detection App</h1>
                 <p>
                     YOLOv8 live detection application on browser powered by <code>tensorflow.js</code>
                 </p>
