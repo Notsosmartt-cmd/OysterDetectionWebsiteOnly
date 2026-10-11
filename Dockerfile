@@ -9,7 +9,8 @@ RUN yarn build
 # 2. Production stage (serve with Nginx)
 FROM nginx:alpine AS production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
-# Optional: Use a custom Nginx config to support client-side routing
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Custom Nginx config: cross-origin isolation headers (multi-threaded WASM) + gzip.
+# Still listens on port 80, same as the stock image.
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

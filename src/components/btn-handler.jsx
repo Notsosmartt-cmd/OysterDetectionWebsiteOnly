@@ -37,7 +37,9 @@ const ButtonHandler = ({ imageRef, cameraRef, videoRef }) => {
         accept="image/*"
         style={{ display: "none" }}
         onChange={(e) => {
-          const url = URL.createObjectURL(e.target.files[0]); // create blob url
+          const file = e.target.files[0];
+          if (!file) return; // picker was cancelled
+          const url = URL.createObjectURL(file); // create blob url
           imageRef.current.src = url; // set video source
           imageRef.current.style.display = "block"; // show video
           setStreaming("image"); // set streaming to video
@@ -62,8 +64,10 @@ const ButtonHandler = ({ imageRef, cameraRef, videoRef }) => {
         accept="video/*"
         style={{ display: "none" }}
         onChange={(e) => {
+          const file = e.target.files[0];
+          if (!file) return; // picker was cancelled
           if (streaming === "image") closeImage(); // closing image streaming
-          const url = URL.createObjectURL(e.target.files[0]); // create blob url
+          const url = URL.createObjectURL(file); // create blob url
           videoRef.current.src = url; // set video source
           videoRef.current.addEventListener("ended", () => closeVideo()); // add ended video listener
           videoRef.current.style.display = "block"; // show video

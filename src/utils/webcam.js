@@ -17,6 +17,10 @@ export class Webcam {
         })
         .then((stream) => {
           videoRef.srcObject = stream;
+          videoRef.play().catch(() => {}); // iOS Safari may not autoplay on its own
+        })
+        .catch((err) => {
+          alert(`Can't open Webcam: ${err.name} - ${err.message}`);
         });
     } else alert("Can't open Webcam!");
   };
